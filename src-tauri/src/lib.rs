@@ -21,16 +21,10 @@ type SharedInternalState = Mutex<InternalState>;
 fn get_state(name: String, app: tauri::AppHandle) -> bool {
     println!("get_state: {:?}", name);
 
+    let app_ref = app.clone();
     match name.as_str() {
-        "internal_state" => {
-            let internal_state_ref = app.state::<SharedInternalState>();
-            let guard = internal_state_ref.lock().unwrap();
-
-            println!("emitting internal_state {:?}", guard.clone());
-            app.emit("internal_state_update", guard.clone())
-                .expect("unable to emit state");
-
-            return true;
+        "InternalState" => {
+            state::emit_handler!(InternalState, app_ref)
         }
         _ => return false,
     }
@@ -48,7 +42,7 @@ fn greet(
 
     internal_state.authenticated = true;
 
-    app.emit("internal_state_update", internal_state.clone())
+    app.emit("InternalState_update", internal_state.clone())
         .expect("unable to emit state");
 
     format!("Hello, {}! You've been greeted from Rust!", name)
@@ -87,20 +81,8 @@ pub fn run() {
                 println!("state update handler: {:?}", event.payload);
 
                 match event.payload.name.as_str() {
-                    "internal_state" => {
-                        let new_state: InternalState =
-                            match serde_json::from_str(&event.payload.value) {
-                                Ok(res) => res,
-                                Err(_) => {
-                                    println!("failed to parse internal state");
-                                    return;
-                                }
-                            };
-
-                        println!("internal state update: {:?}", new_state.clone());
-                        let internal_state_ref = app_ref.state::<SharedInternalState>();
-                        let mut guard = internal_state_ref.lock().unwrap();
-                        *guard = new_state;
+                    "InternalState" => {
+                        state::update_handler!(InternalState, app_ref, &event.payload.value)
                     }
                     _ => return,
                 }

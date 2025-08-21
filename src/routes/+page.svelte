@@ -4,7 +4,7 @@
     import type { InternalState } from "$lib/bindings.ts";
     import { onDestroy } from "svelte";
 
-    let internal_state = new SyncedState<InternalState>("internal_state", {
+    let internal_state = new SyncedState<InternalState>("InternalState", {
         authenticated: false,
         name: "",
     });
