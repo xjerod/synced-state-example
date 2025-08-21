@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    syned_state_example_lib::run()
+    synced_state_example_lib::run()
 }

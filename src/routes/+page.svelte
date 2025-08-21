@@ -11,8 +11,6 @@
 
     let greetMsg = $state("");
 
-    $inspect(internal_state.obj);
-
     async function greet(event: Event) {
         event.preventDefault();
         internal_state.sync();

@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { commands, events } from "./bindings";
 
 export function NewSyncedState<T extends Record<string, any>>(name: string, object: T): { name: string, obj: T, sync: ()=>boolean, close(): boolean} {
     let proxyObj = $state(object);
@@ -31,7 +32,6 @@ export function NewSyncedState<T extends Record<string, any>>(name: string, obje
 export class SyncedState<T> {
     name: string;
     obj: T = $state({} as T);
-    #update_latch: boolean = true;
     #un_sub: UnlistenFn | undefined;
 
     constructor(name: string, object: T) {
@@ -39,24 +39,11 @@ export class SyncedState<T> {
         this.obj = object;
 
         listen<T>(`${this.name}_update`, (event) => {
-            console.log(`DEBUG [SyncedStore]: ${this.name}_update event`);
-            this.#update_latch = true;
+            console.log(`DEBUG [SyncedStore]: ${this.name}_update event`,event.payload);
             this.obj = event.payload;
         }).then((f) => {
             this.#un_sub = f;
-        });
-
-        $effect.root(() => {
-            $effect(() => {
-                console.log("DEBUG [SyncedStore]: updated...");
-
-                // if (!this.#update_latch) {
-                //     invoke(`set_${this.name}`, { new_value: this.object });
-                // } else {
-                //     console.log("update latch");
-                //     this.#update_latch = false;
-                // }
-            });
+            commands.getState(this.name);
         });
     }
 
@@ -66,8 +53,10 @@ export class SyncedState<T> {
         }
     }
 
-     sync(): boolean {
-        console.log(`DEBUG [SyncedStore]: ${this.name} - syncing`, $state.snapshot(this.obj));
+    async sync():  Promise<boolean> {
+        const val = $state.snapshot(this.obj);
+        console.log(`DEBUG [SyncedStore]: ${this.name} - syncing`, val);
+        await events.update.emit({version: null, name:this.name, value: JSON.stringify(val)});
         return true
     }
 }
