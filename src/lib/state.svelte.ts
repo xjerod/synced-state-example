@@ -1,4 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { commands, events } from "./bindings";
 
@@ -43,7 +42,7 @@ export class SyncedState<T> {
             this.obj = event.payload;
         }).then((f) => {
             this.#un_sub = f;
-            commands.getState(this.name);
+            commands.emitState(this.name);
         });
     }
 
@@ -56,7 +55,7 @@ export class SyncedState<T> {
     async sync():  Promise<boolean> {
         const val = $state.snapshot(this.obj);
         console.log(`DEBUG [SyncedStore]: ${this.name} - syncing`, val);
-        await events.update.emit({version: null, name:this.name, value: JSON.stringify(val)});
+        await events.stateUpdate.emit({version: null, name:this.name, value: JSON.stringify(val)});
         return true
     }
 }

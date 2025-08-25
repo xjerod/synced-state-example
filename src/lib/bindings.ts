@@ -8,8 +8,8 @@ export const commands = {
 async greet(name: string) : Promise<string> {
     return await TAURI_INVOKE("greet", { name });
 },
-async getState(name: string) : Promise<boolean> {
-    return await TAURI_INVOKE("get_state", { name });
+async emitState(name: string) : Promise<boolean> {
+    return await TAURI_INVOKE("emit_state", { name });
 }
 }
 
@@ -17,9 +17,9 @@ async getState(name: string) : Promise<boolean> {
 
 
 export const events = __makeEvents__<{
-update: Update
+stateUpdate: StateUpdate
 }>({
-update: "update"
+stateUpdate: "state-update"
 })
 
 /** user-defined constants **/
@@ -29,7 +29,7 @@ update: "update"
 /** user-defined types **/
 
 export type InternalState = { authenticated: boolean; name: string }
-export type Update = { version: bigint | null; name: string; value: string }
+export type StateUpdate = { version: bigint | null; name: string; value: string }
 
 /** tauri-specta globals **/
 

@@ -1,43 +1,36 @@
-use std::sync::Mutex;
-
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use specta_typescript::Typescript;
 use tauri::{Emitter, Manager, State};
 use tauri_specta::{collect_commands, Event};
+use tracing::info;
 
 mod state;
 
-#[derive(Deserialize, Serialize, Type, Clone, Debug)]
+#[derive(Clone, Deserialize, Serialize, Type, Debug)]
 pub struct InternalState {
     pub authenticated: bool,
     pub name: String,
 }
 
-type SharedInternalState = Mutex<InternalState>;
-
 #[tauri::command]
 #[specta::specta]
-fn get_state(name: String, app: tauri::AppHandle) -> bool {
-    println!("get_state: {:?}", name);
+fn emit_state(name: String, app: tauri::AppHandle, state_syncer: State<'_, state::Syncer>) -> bool {
+    info!("emit_state: {:?}", name);
 
-    let app_ref = app.clone();
+    // TODO: find a better way to do this
     match name.as_str() {
-        "InternalState" => {
-            state::emit_handler!(InternalState, app_ref)
-        }
+        "InternalState" => state_syncer.emit::<InternalState>("InternalState"),
         _ => return false,
     }
 }
 
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
 #[specta::specta]
-fn greet(
-    name: String,
-    app: tauri::AppHandle,
-    internal_state_ref: State<'_, SharedInternalState>,
-) -> String {
+fn greet(name: String, app: tauri::AppHandle, state_syncer: State<'_, state::Syncer>) -> String {
+    info!(name, "greet");
+
+    let internal_state_ref = state_syncer.get::<InternalState>("InternalState");
     let mut internal_state = internal_state_ref.lock().unwrap();
 
     internal_state.authenticated = true;
@@ -50,12 +43,20 @@ fn greet(
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    color_eyre::install().expect("failed to install color_eyre");
+
+    tracing_subscriber::fmt()
+        // enable everything
+        .with_max_level(tracing::Level::DEBUG)
+        // sets this to be the default, global collector for this application.
+        .init();
+
     let builder = tauri::Builder::default();
 
     let handlers = tauri_specta::Builder::<tauri::Wry>::new()
         .typ::<InternalState>()
-        .commands(collect_commands![greet, get_state,])
-        .events(tauri_specta::collect_events![state::Update]);
+        .commands(collect_commands![greet, emit_state,])
+        .events(tauri_specta::collect_events![state::StateUpdate]);
 
     #[cfg(debug_assertions)] // <- Only export on non-release builds
     handlers
@@ -72,27 +73,37 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(handlers.invoke_handler())
         .setup(move |app| {
-            // This is also required if you want to use events
             handlers.mount_events(app);
 
             let app_ref = app.handle().clone();
 
-            state::Update::listen(app, move |event| {
+            let state_syncer = state::Syncer::new(app_ref.clone());
+            let state_syncer_ref = state_syncer.clone();
+
+            state::StateUpdate::listen(&app_ref.clone(), move |event| {
                 println!("state update handler: {:?}", event.payload);
 
+                // TODO improve the ergonomics of this
                 match event.payload.name.as_str() {
                     "InternalState" => {
-                        state::update_handler!(InternalState, app_ref, &event.payload.value)
+                        state_syncer_ref.update_string::<InternalState>(
+                            "InternalState",
+                            event.payload.value.as_str(),
+                        );
                     }
                     _ => return,
                 }
             });
 
-            let internal_state = InternalState {
-                authenticated: false,
-                name: "".to_owned(),
-            };
-            app.manage::<SharedInternalState>(Mutex::new(internal_state));
+            //debug!("state update handler: {:?}", event.payload);
+            state_syncer.set(
+                "InternalState",
+                InternalState {
+                    authenticated: false,
+                    name: "".to_owned(),
+                },
+            );
+            app.manage::<state::Syncer>(state_syncer);
 
             Ok(())
         })
