@@ -1,17 +1,16 @@
+use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::fmt::Debug;
-use std::sync::MutexGuard;
+use std::sync::{LockResult, MutexGuard};
 use std::{
     any::Any,
     collections::HashMap,
     pin::Pin,
     sync::{Arc, Mutex},
 };
-
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
-use specta::Type;
 use tauri::{AppHandle, Emitter};
 use tauri_specta::Event;
+use tracing::{debug, error};
 
 #[derive(Deserialize, Serialize, Type, Clone, Debug, Event)]
 pub struct StateUpdate {
@@ -20,68 +19,34 @@ pub struct StateUpdate {
     pub value: String,
 }
 
-pub struct Item<'r, T: Send + Sync + 'static>(&'r T);
+pub struct Item<'r, T: Send + Sync + Debug + 'static>(&'r Mutex<T>);
 
-impl<T: Send + Sync + 'static> Drop for Item<'_, T> {
+impl<'r, T: Send + Sync + Debug + 'static> Item<'r, T> {
+    pub fn lock(&'_ self) -> LockResult<MutexGuard<'_, T>> {
+        self.0.lock()
+    }
+}
+
+impl<T: Send + Sync + Debug + 'static> Drop for Item<'_, T> {
     fn drop(&mut self) {
-        debug!("item dropped")
+        let self_guard = self.0.lock().unwrap();
+        debug!("[Item] dropped: {:?}", *self_guard);
     }
 }
 
-impl<T: Send + Sync + 'static> std::ops::Deref for Item<'_, T> {
-    type Target = T;
-
-    #[inline(always)]
-    fn deref(&self) -> &T {
-        self.0
-    }
-}
-
-impl<T: Send + Sync + 'static> Clone for Item<'_, T> {
+impl<T: Send + Sync + Debug + 'static> Clone for Item<'_, T> {
     fn clone(&self) -> Self {
         Item(self.0)
     }
 }
 
-impl<T: Send + Sync + 'static + PartialEq> PartialEq for Item<'_, T> {
+impl<T: Send + Sync + Debug + 'static + PartialEq> PartialEq for Item<'_, T> {
     fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
+        let self_guard = self.0.lock().unwrap();
+        let other_guard = other.0.lock().unwrap();
+        self_guard.eq(&other_guard)
     }
 }
-
-macro_rules! update_handler {
-    ($state:ty, $app_ref:expr, $payload_value:expr) => {{
-        let new_state: $state = match serde_json::from_str($payload_value) {
-            Ok(res) => res,
-            Err(_) => {
-                tracing::error!("failed to parse internal state");
-                return;
-            }
-        };
-
-        tracing::debug!("update {}: {:?}", stringify!($state), new_state.clone());
-        let internal_state_ref = $app_ref.state::<std::sync::Mutex<$state>>();
-        let mut guard = internal_state_ref.lock().unwrap();
-        *guard = new_state;
-    }};
-}
-use tracing::{debug, error, trace};
-pub(crate) use update_handler;
-
-macro_rules! emit_handler {
-    ($state:ty, $app_ref:expr) => {{
-        let state_ref = $app_ref.state::<std::sync::Mutex<$state>>();
-        let guard = state_ref.lock().unwrap();
-
-        let key = format!("{}_update", stringify!($state));
-        tracing::debug!("emitting {}: {:?}", stringify!($state), guard.clone());
-        $app_ref
-            .emit(key.as_str(), guard.clone())
-            .expect("unable to emit state");
-        return true;
-    }};
-}
-pub(crate) use emit_handler;
 
 type MapAny = HashMap<String, Pin<Box<dyn Any + Send + Sync>>>;
 
@@ -150,9 +115,9 @@ impl Syncer {
         guard.insert(key.to_string(), Box::pin(Mutex::new(value)));
     }
 
-    pub fn get<'a, T>(&self, key: &str) -> Item<'_, Mutex<T>>
+    pub fn get<'a, T>(&self, key: &str) -> Item<'_, T>
     where
-        T: 'static + Send + Sync + Serialize + Deserialize<'a>,
+        T: 'static + Send + Sync + Serialize + Deserialize<'a> + Debug,
     {
         debug!(key, "get");
         let guard = self.data.lock().unwrap();

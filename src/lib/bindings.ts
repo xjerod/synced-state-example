@@ -10,6 +10,9 @@ async greet(name: string) : Promise<string> {
 },
 async emitState(name: string) : Promise<boolean> {
     return await TAURI_INVOKE("emit_state", { name });
+},
+async updateState(state: StateUpdate) : Promise<boolean> {
+    return await TAURI_INVOKE("update_state", { state });
 }
 }
 

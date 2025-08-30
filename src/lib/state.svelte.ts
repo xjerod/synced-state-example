@@ -1,33 +1,6 @@
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { commands, events } from "./bindings";
 
-export function NewSyncedState<T extends Record<string, any>>(name: string, object: T): { name: string, obj: T, sync: ()=>boolean, close(): boolean} {
-    let proxyObj = $state(object);
-    let un_sub: UnlistenFn | undefined;
-    listen<T>(`${name}_update`, (event) => {
-        console.log(`${name}_update event`);
-        proxyObj = event.payload;
-    }).then((f) => {
-        un_sub = f;
-    })
-
-    return {
-        name: name,
-        obj: proxyObj,
-        sync: (): boolean => {
-            console.log(`${name} - syncing`, $state.snapshot(proxyObj));
-            return true
-        },
-        close: (): boolean => {
-            console.log(`${name} - closing`);
-            if (un_sub) {
-                un_sub();
-            }
-            return true
-        }
-    };
-}
-
 export class SyncedState<T> {
     name: string;
     obj: T = $state({} as T);
@@ -53,6 +26,12 @@ export class SyncedState<T> {
     }
 
     async sync():  Promise<boolean> {
+        const val = $state.snapshot(this.obj);
+        console.log(`DEBUG [SyncedStore]: ${this.name} - syncing`, val);
+        return commands.updateState({version: null, name:this.name, value: JSON.stringify(val)})
+    }
+
+    async emit():  Promise<boolean> {
         const val = $state.snapshot(this.obj);
         console.log(`DEBUG [SyncedStore]: ${this.name} - syncing`, val);
         await events.stateUpdate.emit({version: null, name:this.name, value: JSON.stringify(val)});

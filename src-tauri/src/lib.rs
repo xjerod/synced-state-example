@@ -3,7 +3,7 @@ use specta::Type;
 use specta_typescript::Typescript;
 use tauri::{Emitter, Manager, State};
 use tauri_specta::{collect_commands, Event};
-use tracing::info;
+use tracing::{info, warn};
 
 mod state;
 
@@ -15,7 +15,11 @@ pub struct InternalState {
 
 #[tauri::command]
 #[specta::specta]
-fn emit_state(name: String, app: tauri::AppHandle, state_syncer: State<'_, state::Syncer>) -> bool {
+fn emit_state(
+    name: String,
+    _app: tauri::AppHandle,
+    state_syncer: State<'_, state::Syncer>,
+) -> bool {
     info!("emit_state: {:?}", name);
 
     // TODO: find a better way to do this
@@ -23,6 +27,27 @@ fn emit_state(name: String, app: tauri::AppHandle, state_syncer: State<'_, state
         "InternalState" => state_syncer.emit::<InternalState>("InternalState"),
         _ => return false,
     }
+}
+
+#[tauri::command]
+#[specta::specta]
+fn update_state(
+    state: state::StateUpdate,
+    _app: tauri::AppHandle,
+    state_syncer: State<'_, state::Syncer>,
+) -> bool {
+    info!("update_state: {:?}", state);
+
+    // TODO: find a better way to do this
+    match state.name.as_str() {
+        "InternalState" => {
+            state_syncer.update_string::<InternalState>("InternalState", state.value.as_str());
+        }
+        _ => {
+            warn!("unknown type")
+        }
+    }
+    return true;
 }
 
 #[tauri::command]
@@ -55,7 +80,7 @@ pub fn run() {
 
     let handlers = tauri_specta::Builder::<tauri::Wry>::new()
         .typ::<InternalState>()
-        .commands(collect_commands![greet, emit_state,])
+        .commands(collect_commands![greet, emit_state, update_state,])
         .events(tauri_specta::collect_events![state::StateUpdate]);
 
     #[cfg(debug_assertions)] // <- Only export on non-release builds
@@ -81,7 +106,7 @@ pub fn run() {
             let state_syncer_ref = state_syncer.clone();
 
             state::StateUpdate::listen(&app_ref.clone(), move |event| {
-                println!("state update handler: {:?}", event.payload);
+                warn!("state update handler: {:?}", event.payload);
 
                 // TODO improve the ergonomics of this
                 match event.payload.name.as_str() {

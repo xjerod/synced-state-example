@@ -13,7 +13,7 @@
 
     async function greet(event: Event) {
         event.preventDefault();
-        internal_state.sync();
+        await internal_state.sync();
         greetMsg = await commands.greet(internal_state.obj.name);
     }
 
