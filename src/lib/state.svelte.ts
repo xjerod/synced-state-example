@@ -10,6 +10,7 @@ export class SyncedState<T> {
         this.name = name;
         this.obj = object;
 
+        // TODO: update this to the type safe event system
         listen<T>(`${this.name}_update`, (event) => {
             console.log(`DEBUG [SyncedStore]: ${this.name}_update event`,event.payload);
             this.obj = event.payload;

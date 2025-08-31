@@ -19,32 +19,48 @@ pub struct StateUpdate {
     pub value: String,
 }
 
-pub struct Item<'r, T: Send + Sync + Debug + 'static>(&'r Mutex<T>);
+// Define a helper trait that combines all the required traits
+pub trait ItemTrait<'r>:
+    'static + Send + Sync + Serialize + Deserialize<'r> + Debug + Clone
+{
+}
+// Blanket impl
+impl<'r, T> ItemTrait<'r> for T where
+    T: 'static + Send + Sync + Serialize + Deserialize<'r> + Debug + Clone
+{
+}
 
-impl<'r, T: Send + Sync + Debug + 'static> Item<'r, T> {
+pub struct Item<'r, T: ItemTrait<'r>>(&'r Mutex<T>, &'r str, &'r AppHandle);
+
+impl<'r, T: ItemTrait<'r>> Item<'r, T> {
     pub fn lock(&'_ self) -> LockResult<MutexGuard<'_, T>> {
         self.0.lock()
     }
 }
 
-impl<T: Send + Sync + Debug + 'static> Drop for Item<'_, T> {
+impl<'r, T: ItemTrait<'r>> Drop for Item<'r, T> {
     fn drop(&mut self) {
         let self_guard = self.0.lock().unwrap();
         debug!("[Item] dropped: {:?}", *self_guard);
+
+        let name = format!("{}_update", self.1);
+        self.2
+            .emit(&name, self_guard.clone())
+            .expect("unable to emit state");
     }
 }
 
-impl<T: Send + Sync + Debug + 'static> Clone for Item<'_, T> {
+impl<'r, T: ItemTrait<'r>> Clone for Item<'r, T> {
     fn clone(&self) -> Self {
-        Item(self.0)
+        Item(self.0, self.1, self.2)
     }
 }
 
-impl<T: Send + Sync + Debug + 'static + PartialEq> PartialEq for Item<'_, T> {
+impl<'r, T: ItemTrait<'r> + PartialEq> PartialEq for Item<'r, T> {
     fn eq(&self, other: &Self) -> bool {
         let self_guard = self.0.lock().unwrap();
         let other_guard = other.0.lock().unwrap();
-        self_guard.eq(&other_guard)
+        self_guard.eq(&other_guard) && self.1 == other.1
     }
 }
 
@@ -115,9 +131,9 @@ impl Syncer {
         guard.insert(key.to_string(), Box::pin(Mutex::new(value)));
     }
 
-    pub fn get<'a, T>(&self, key: &str) -> Item<'_, T>
+    pub fn get<'a, T>(&'a self, key: &'a str) -> Item<'a, T>
     where
-        T: 'static + Send + Sync + Serialize + Deserialize<'a> + Debug,
+        T: 'static + Send + Sync + Serialize + Deserialize<'a> + Debug + Clone,
     {
         debug!(key, "get");
         let guard = self.data.lock().unwrap();
@@ -128,12 +144,13 @@ impl Syncer {
                 .unwrap_unchecked()
         };
         let v_ref = unsafe { &*(value as *const Mutex<T>) };
-        Item(v_ref)
+
+        Item(v_ref, key, &self.app)
     }
 
     pub fn emit<'a, T>(&self, name: &str) -> bool
     where
-        T: 'static + Send + Sync + Serialize + Deserialize<'a> + Clone + Debug,
+        T: 'static + Send + Sync + Serialize + Deserialize<'a> + Clone + Debug + Clone,
     {
         debug!(key = name, "emit");
         let guard = self.data.lock().unwrap();

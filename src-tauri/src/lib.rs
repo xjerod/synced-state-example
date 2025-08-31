@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use specta_typescript::Typescript;
-use tauri::{Emitter, Manager, State};
+use tauri::{Manager, State};
 use tauri_specta::{collect_commands, Event};
 use tracing::{info, warn};
 
@@ -52,16 +52,13 @@ fn update_state(
 
 #[tauri::command]
 #[specta::specta]
-fn greet(name: String, app: tauri::AppHandle, state_syncer: State<'_, state::Syncer>) -> String {
+fn greet(name: String, _app: tauri::AppHandle, state_syncer: State<'_, state::Syncer>) -> String {
     info!(name, "greet");
 
     let internal_state_ref = state_syncer.get::<InternalState>("InternalState");
     let mut internal_state = internal_state_ref.lock().unwrap();
 
     internal_state.authenticated = true;
-
-    app.emit("InternalState_update", internal_state.clone())
-        .expect("unable to emit state");
 
     format!("Hello, {}! You've been greeted from Rust!", name)
 }
@@ -120,7 +117,6 @@ pub fn run() {
                 }
             });
 
-            //debug!("state update handler: {:?}", event.payload);
             state_syncer.set(
                 "InternalState",
                 InternalState {
