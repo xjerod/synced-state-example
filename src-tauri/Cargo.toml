@@ -29,3 +29,5 @@ eyre = "0.6.12"
 color-eyre = "0.6.3"
 tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
+# tauri-svelte-synced-store = {path = "../../tauri-svelte-synced-store"}
+tauri-svelte-synced-store = { git = "https://github.com/synthlabs/tauri-svelte-synced-store.git" }

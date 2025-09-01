@@ -1,8 +1,8 @@
 <script lang="ts">
-    import { commands } from "$lib/bindings.ts";
-    import { SyncedState } from "$lib/state.svelte";
-    import type { InternalState } from "$lib/bindings.ts";
+    import { SyncedState } from "tauri-svelte-synced-store";
     import { onDestroy } from "svelte";
+    import { commands } from "$lib/bindings.ts";
+    import type { InternalState } from "$lib/bindings.ts";
 
     let internal_state = new SyncedState<InternalState>("InternalState", {
         authenticated: false,

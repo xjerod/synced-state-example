@@ -1,7 +1,8 @@
-# Tauri + SvelteKit + TypeScript
+# Synced State Example
 
-This template should help get you started developing with Tauri, SvelteKit and TypeScript in Vite.
+This is a basic tauri v2 app that shows a minimal example for using [tauri-svelte-synced-store](https://github.com/synthlabs/tauri-svelte-synced-store)
 
-## Recommended IDE Setup
+<p align="center">
+  <img src="screenshots/tauri-svelte-synced-state-example.gif" height="600">
+</p>
 
-[VS Code](https://code.visualstudio.com/) + [Svelte](https://marketplace.visualstudio.com/items?itemName=svelte.svelte-vscode) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer).

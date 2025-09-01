@@ -3,9 +3,8 @@ use specta::Type;
 use specta_typescript::Typescript;
 use tauri::{Manager, State};
 use tauri_specta::{collect_commands, Event};
+use tauri_svelte_synced_store::{StateSyncer, StateUpdate};
 use tracing::{info, warn};
-
-mod state;
 
 #[derive(Clone, Deserialize, Serialize, Type, Debug)]
 pub struct InternalState {
@@ -15,11 +14,7 @@ pub struct InternalState {
 
 #[tauri::command]
 #[specta::specta]
-fn emit_state(
-    name: String,
-    _app: tauri::AppHandle,
-    state_syncer: State<'_, state::Syncer>,
-) -> bool {
+fn emit_state(name: String, _app: tauri::AppHandle, state_syncer: State<'_, StateSyncer>) -> bool {
     info!("emit_state: {:?}", name);
 
     // TODO: find a better way to do this
@@ -32,9 +27,9 @@ fn emit_state(
 #[tauri::command]
 #[specta::specta]
 fn update_state(
-    state: state::StateUpdate,
+    state: StateUpdate,
     _app: tauri::AppHandle,
-    state_syncer: State<'_, state::Syncer>,
+    state_syncer: State<'_, StateSyncer>,
 ) -> bool {
     info!("update_state: {:?}", state);
 
@@ -52,7 +47,7 @@ fn update_state(
 
 #[tauri::command]
 #[specta::specta]
-fn greet(name: String, _app: tauri::AppHandle, state_syncer: State<'_, state::Syncer>) -> String {
+fn greet(name: String, _app: tauri::AppHandle, state_syncer: State<'_, StateSyncer>) -> String {
     info!(name, "greet");
 
     let internal_state_ref = state_syncer.get::<InternalState>("InternalState");
@@ -78,7 +73,7 @@ pub fn run() {
     let handlers = tauri_specta::Builder::<tauri::Wry>::new()
         .typ::<InternalState>()
         .commands(collect_commands![greet, emit_state, update_state,])
-        .events(tauri_specta::collect_events![state::StateUpdate]);
+        .events(tauri_specta::collect_events![StateUpdate]);
 
     #[cfg(debug_assertions)] // <- Only export on non-release builds
     handlers
@@ -99,10 +94,10 @@ pub fn run() {
 
             let app_ref = app.handle().clone();
 
-            let state_syncer = state::Syncer::new(app_ref.clone());
+            let state_syncer = StateSyncer::new(app_ref.clone());
             let state_syncer_ref = state_syncer.clone();
 
-            state::StateUpdate::listen(&app_ref.clone(), move |event| {
+            StateUpdate::listen(&app_ref.clone(), move |event| {
                 warn!("state update handler: {:?}", event.payload);
 
                 // TODO improve the ergonomics of this
@@ -124,7 +119,7 @@ pub fn run() {
                     name: "".to_owned(),
                 },
             );
-            app.manage::<state::Syncer>(state_syncer);
+            app.manage::<StateSyncer>(state_syncer);
 
             Ok(())
         })

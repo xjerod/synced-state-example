@@ -3598,6 +3598,7 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-opener",
  "tauri-specta",
+ "tauri-svelte-synced-store",
  "tracing",
  "tracing-subscriber",
 ]
@@ -3910,6 +3911,21 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.104",
+]
+
+[[package]]
+name = "tauri-svelte-synced-store"
+version = "0.1.0"
+source = "git+https://github.com/synthlabs/tauri-svelte-synced-store.git#74cdde81379b86929f1e9bffa3bb545d09c3532c"
+dependencies = [
+ "serde",
+ "serde_json",
+ "specta",
+ "specta-typescript",
+ "tauri",
+ "tauri-specta",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
