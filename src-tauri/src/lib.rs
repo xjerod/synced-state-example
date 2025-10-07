@@ -22,6 +22,8 @@ fn emit_state(name: String, _app: tauri::AppHandle, state_syncer: State<'_, Stat
         "InternalState" => state_syncer.emit::<InternalState>("InternalState"),
         _ => return false,
     }
+
+    // state_syncer.emit_dynamic(name.as_str())
 }
 
 #[tauri::command]
@@ -36,7 +38,8 @@ fn update_state(
     // TODO: find a better way to do this
     match state.name.as_str() {
         "InternalState" => {
-            state_syncer.update_string::<InternalState>("InternalState", state.value.as_str());
+            state_syncer
+                .update_typed_string::<InternalState>("InternalState", state.value.as_str());
         }
         _ => {
             warn!("unknown type")
@@ -103,7 +106,7 @@ pub fn run() {
                 // TODO improve the ergonomics of this
                 match event.payload.name.as_str() {
                     "InternalState" => {
-                        state_syncer_ref.update_string::<InternalState>(
+                        state_syncer_ref.update_typed_string::<InternalState>(
                             "InternalState",
                             event.payload.value.as_str(),
                         );

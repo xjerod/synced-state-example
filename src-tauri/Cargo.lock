@@ -3916,7 +3916,7 @@ dependencies = [
 [[package]]
 name = "tauri-svelte-synced-store"
 version = "0.1.0"
-source = "git+https://github.com/synthlabs/tauri-svelte-synced-store.git#74cdde81379b86929f1e9bffa3bb545d09c3532c"
+source = "git+https://github.com/synthlabs/tauri-svelte-synced-store.git#b65c4fc421c148c473361cec670605c9b374a05f"
 dependencies = [
  "serde",
  "serde_json",
