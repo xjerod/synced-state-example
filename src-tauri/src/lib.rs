@@ -12,41 +12,7 @@ pub struct InternalState {
     pub name: String,
 }
 
-#[tauri::command]
-#[specta::specta]
-fn emit_state(name: String, _app: tauri::AppHandle, state_syncer: State<'_, StateSyncer>) -> bool {
-    info!("emit_state: {:?}", name);
-
-    // TODO: find a better way to do this
-    match name.as_str() {
-        "InternalState" => state_syncer.emit::<InternalState>("InternalState"),
-        _ => return false,
-    }
-
-    // state_syncer.emit_dynamic(name.as_str())
-}
-
-#[tauri::command]
-#[specta::specta]
-fn update_state(
-    state: StateUpdate,
-    _app: tauri::AppHandle,
-    state_syncer: State<'_, StateSyncer>,
-) -> bool {
-    info!("update_state: {:?}", state);
-
-    // TODO: find a better way to do this
-    match state.name.as_str() {
-        "InternalState" => {
-            state_syncer
-                .update_typed_string::<InternalState>("InternalState", state.value.as_str());
-        }
-        _ => {
-            warn!("unknown type")
-        }
-    }
-    return true;
-}
+tauri_svelte_synced_store::state_handlers!(InternalState = "InternalState");
 
 #[tauri::command]
 #[specta::specta]
@@ -100,20 +66,11 @@ pub fn run() {
             let state_syncer = StateSyncer::new(app_ref.clone());
             let state_syncer_ref = state_syncer.clone();
 
-            StateUpdate::listen(&app_ref.clone(), move |event| {
-                warn!("state update handler: {:?}", event.payload);
-
-                // TODO improve the ergonomics of this
-                match event.payload.name.as_str() {
-                    "InternalState" => {
-                        state_syncer_ref.update_typed_string::<InternalState>(
-                            "InternalState",
-                            event.payload.value.as_str(),
-                        );
-                    }
-                    _ => return,
-                }
-            });
+            tauri_svelte_synced_store::state_listener!(
+                app_ref.clone(),
+                state_syncer_ref.clone(),
+                InternalState = "InternalState"
+            );
 
             state_syncer.set(
                 "InternalState",
